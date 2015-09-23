@@ -3,9 +3,12 @@
 // @description Помошник в разгребании стори в редмайне
 // @author Timur Mingaliev
 // @license MIT
-// @version 0.1.6
+// @version 0.1.14
 // @include http://redmine.*
 // @include https://redmine.*
+// @grant GM_addStyle
+// @grant GM_getValue
+// @grant GM_setValue
 // ==/UserScript==
 
 (function (window, undefined) {
@@ -19,6 +22,7 @@
     if (w.self != w.top) {
         return;
     }
+
     if (/http(s)?:\/\/redmine\./.test(w.location.href)) {
         var stories = document.querySelectorAll('.model.story'),
             storage = getLocalStorage(),
@@ -43,7 +47,11 @@
 
         styleSheet = styleNode.sheet;
         styles.forEach(function (style) {
-            styleSheet.insertRule(style);
+            if (typeof GM_addStyle === 'function') {
+                GM_addStyle(style);
+            } else {
+               styleSheet.insertRule(style);
+            }
         });
 
         var helper = document.createElement('div');
@@ -52,29 +60,30 @@
         helper.addEventListener('click', showAll, false);
 
         updateHelper();
+    }
 
-        function storyRightClick(e) {
-            e.preventDefault();
-            hide(this);
+    function storyRightClick(e) {
+        e.preventDefault();
+        hide(this);
 
-            var data = getData(this.id);
-            data.hidden = true;
-            setData(this.id, data);
+        var data = getData(this.id);
+        data.hidden = true;
+        setData(this.id, data);
 
-            updateLocalStorage();
-            updateHelper();
-        }
+        updateLocalStorage();
+        updateHelper();
+    }
 
-        function hide(item) {
-            item.style.display = 'none';
-        }
+    function hide(item) {
+        item.style.display = 'none';
+    }
 
-        function show(item) {
-            item.style.display = '';
-        }
+    function show(item) {
+        item.style.display = '';
+    }
 
-        function showAll() {
-            Array.prototype.forEach.call(stories, function (story) {
+    function showAll() {
+        Array.prototype.forEach.call(stories, function (story) {
             if (getData(story.id).hidden) {
                 show(story);
 
@@ -86,54 +95,53 @@
                 updateHelper();
             }
         });
+    }
+
+    function getData(id) {
+        return storage[id] || {hidden: false, color: null};
+    }
+
+    function setData(id, data) {
+        if (!storage[id]) {
+            storage[id] = getData(id);
         }
 
-        function getData(id) {
-            return storage[id] || {hidden: false, color: null};
-        }
-
-        function setData(id, data) {
-            if (!storage[id]) {
-                storage[id] = getData(id);
+        for (i in data) {
+            if (data.hasOwnProperty(i)) {
+                storage[id][i] = data[i];
             }
+        }
+    }
 
-            for (i in data) {
-                if (data.hasOwnProperty(i)) {
-                    storage[id][i] = data[i];
+    function getLocalStorage() {
+        return JSON.parse(localStorage.getItem('storyHelper') || '{}');
+    }
+
+    function updateLocalStorage() {
+        localStorage.setItem('storyHelper', JSON.stringify(storage));
+    }
+
+    function getHelperContent() {
+        var count = 0;
+        for (i in storage) {
+            if (storage.hasOwnProperty(i)) {
+                if (storage[i].hidden) {
+                    count++;
                 }
             }
         }
 
-        function getLocalStorage() {
-            return JSON.parse(localStorage.getItem('storyHelper') || '{}');
+        if (count === 0) {
+            return 'Все задачи видимы';
+        } else {
+            //              0   1    2    3    4    5   6   7   8   9
+            var endings = [ '', 'а', 'и', 'и', 'и', '', '', '', '', '' ],
+                lastNum = parseInt(count.toString().substr(-1, 1), 10);
+            return 'Спрятано ' + count + ' задач' + endings[lastNum] + ', кликните, чтобы показать все';
         }
+    }
 
-        function updateLocalStorage() {
-            localStorage.setItem('storyHelper', JSON.stringify(storage));
-        }
-
-        function getHelperContent() {
-            var count = 0;
-            for (i in storage) {
-                if (storage.hasOwnProperty(i)) {
-                    if (storage[i].hidden) {
-                        count++;
-                    }
-                }
-            }
-
-            if (count === 0) {
-                return 'Все задачи видимы';
-            } else {
-                //              0   1    2    3    4    5   6   7   8   9
-                var endings = [ '', 'а', 'и', 'и', 'и', '', '', '', '', '' ],
-                    lastNum = parseInt(count.toString().substr(-1, 1), 10);
-                return 'Спрятано ' + count + ' задач' + endings[lastNum] + ', кликните, чтобы показать все';
-            }
-        }
-
-        function updateHelper() {
-            helper.innerHTML = getHelperContent();
-        }
+    function updateHelper() {
+        helper.innerHTML = getHelperContent();
     }
 })(window);
